@@ -1,0 +1,184 @@
+-- Insdev Responsive GUI (PC + Mobile)
+local Players    = game:GetService("Players")
+local Teleport   = game:GetService("TeleportService")
+local TweenS     = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Command handlers
+local commands = {
+	kill   = function() if LocalPlayer.Character then LocalPlayer.Character:BreakJoints() end end,
+	rejoin = function() Teleport:Teleport(game.PlaceId, LocalPlayer) end,
+	day    = function() game.Lighting.TimeOfDay = "14:00:00" end,
+	night  = function() game.Lighting.TimeOfDay = "00:00:00" end,
+}
+
+-- UTILS ────────────────────────────────────────────────────────────────────────
+local function make(class, props, parent)
+	local obj = Instance.new(class)
+	for k,v in pairs(props) do obj[k] = v end
+	obj.Parent = parent
+	return obj
+end
+
+local function createButton(text, size, pos, parent)
+	local btn = make("TextButton", {
+		Text = text, Font = Enum.Font.Gotham, TextSize = 14,
+		BackgroundColor3 = Color3.fromRGB(45,45,48), TextColor3 = Color3.new(1,1,1),
+		Size = size, Position = pos, AutoButtonColor = true
+	}, parent)
+	make("UICorner", { CornerRadius = UDim.new(0,6) }, btn)
+	return btn
+end
+
+-- GUI SETUP ──────────────────────────────────────────────────────────────────
+local gui      = make("ScreenGui", { Name="InsdevGUI", ResetOnSpawn=false }, LocalPlayer:WaitForChild("PlayerGui"))
+local scale    = make("UIScale", { Scale = math.clamp(workspace.CurrentCamera.ViewportSize.X/1200, 0.7, 1.2) }, gui)
+
+-- Main window
+local main = make("Frame", {
+	AnchorPoint = Vector2.new(0.5,0.5),
+	Position = UDim2.new(0.5,0,0.5,0),
+	Size = UDim2.new(0.8,0,0.75,0),
+	BackgroundColor3 = Color3.fromRGB(30,30,30), BorderSizePixel=0,
+	Active=true, Draggable=true
+}, gui)
+make("UICorner", { CornerRadius=UDim.new(0,12) }, main)
+
+-- Shadow (9-slice)
+local shadow = make("ImageLabel", {
+	Image="rbxassetid://1316045217", ScaleType=Enum.ScaleType.Slice,
+	SliceCenter=Rect.new(10,10,118,118), Size=UDim2.new(1,40,1,40),
+	Position=UDim2.new(0,-20,0,-20), BackgroundTransparency=1, ImageTransparency=0.6, ZIndex=0
+}, main)
+
+-- Tab Bar
+local tabBar = make("Frame", {
+	Size=UDim2.new(1,0,0,40), Position=UDim2.new(0,0,0,0),
+	BackgroundColor3=Color3.fromRGB(20,20,22), BorderSizePixel=0
+}, main)
+make("UICorner", { CornerRadius=UDim.new(0,6) }, tabBar)
+
+-- Content container
+local content = make("Frame", {
+	Size=UDim2.new(1,-20,1,-60), Position=UDim2.new(0,10,0,50),
+	BackgroundColor3=Color3.fromRGB(35,35,35), BorderSizePixel=0, ClipsDescendants=true
+}, main)
+make("UICorner", { CornerRadius=UDim.new(0,8) }, content)
+
+-- Tabs & Pages
+local pages = {}
+local function newPage(name)
+	local page = make("Frame", {
+		Name=name, Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Visible=false
+	}, content)
+	pages[name] = page
+	return page
+end
+
+local function newTab(name, order)
+	local btn = createButton(name, UDim2.new(0,100,1,0),
+		UDim2.new(0,10 + order*110,0,0), tabBar)
+	btn.ZIndex = 1
+	btn.MouseButton1Click:Connect(function()
+		for _,p in pairs(pages) do p.Visible = false end
+		pages[name].Visible = true
+	end)
+end
+
+-- Create
+newTab("General", 0)
+newTab("Settings",1)
+newTab("Info",2)
+
+local genPage = newPage("General")
+local setPage = newPage("Settings")
+local infoPage= newPage("Info")
+
+-- Default
+pages.General.Visible = true
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- COMMAND BOX in General
+local label = make("TextLabel", {
+	Parent=genPage, Size=UDim2.new(1,-20,0,24), Position=UDim2.new(0,10,0,10),
+	Text="Enter command:", Font=Enum.Font.Gotham, TextSize=18,
+	TextColor3=Color3.new(1,1,1), BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left
+}, genPage)
+
+local cmdBox = make("TextBox", {
+	Size=UDim2.new(1,-120,0,30), Position=UDim2.new(0,10,0,40),
+	PlaceholderText="kill, rejoin, day, night", Font=Enum.Font.Gotham,
+	TextSize=16, TextColor3=Color3.new(1,1,1),
+	BackgroundColor3=Color3.fromRGB(40,40,44), BorderSizePixel=0
+}, genPage)
+make("UICorner",{CornerRadius=UDim.new(0,6)}, cmdBox)
+
+local runBtn = createButton("Run", UDim2.new(0,80,0,30),
+	UDim2.new(1,-90,0,40), genPage)
+runBtn.Font = Enum.Font.GothamBold
+
+runBtn.MouseButton1Click:Connect(function()
+	local cmd = cmdBox.Text:lower()
+	if commands[cmd] then
+		pcall(commands[cmd])
+	else
+		warn("Unknown command:", cmd)
+	end
+end)
+
+-- ──────────────── SAMPLE CONTROLS ────────────────────────────────────────────
+-- Toggle Factory
+local function addToggle(page, text, y)
+	local btn = createButton("[OFF] "..text,
+		UDim2.new(1,-20,0,30), UDim2.new(0,10,0,y), page)
+	local on = false
+	btn.MouseButton1Click:Connect(function()
+		on = not on
+		btn.Text = (on and "[ON] " or "[OFF] ")..text
+	end)
+end
+
+addToggle(genPage,"ESP",90)
+addToggle(genPage,"Aimbot",130)
+addToggle(genPage,"XRay",170)
+
+-- Slider in Settings
+local sliderLabel = make("TextLabel", {
+	Parent = setPage, Size=UDim2.new(1,-20,0,24),
+	Position = UDim2.new(0,10,0,10), Text="Volume: 50%", Font=Enum.Font.Gotham,
+	TextSize=16, TextColor3=Color3.new(1,1,1), BackgroundTransparency=1
+}, setPage)
+local sliderBg = make("Frame", {
+	Parent=setPage, Size=UDim2.new(1,-20,0,8),
+	Position=UDim2.new(0,10,0,40), BackgroundColor3=Color3.fromRGB(45,45,48)
+}, setPage)
+make("UICorner",{CornerRadius=UDim.new(0,4)}, sliderBg)
+local sliderFill = make("Frame", {
+	Parent=sliderBg, Size=UDim2.new(0.5,0,1,0), Position=UDim2.new(0,0,0,0),
+	BackgroundColor3=Color3.fromRGB(0,120,255)
+}, sliderBg)
+make("UICorner",{CornerRadius=UDim.new(0,4)}, sliderFill)
+
+-- Drag logic for slider
+local dragging = false
+sliderFill.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+	end
+end)
+sliderFill.InputEnded:Connect(function(input) dragging = false end)
+sliderBg.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+		local x = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0,1)
+		sliderFill.Size = UDim2.new(x,0,1,0)
+		sliderLabel.Text = "Volume: "..math.floor(x*100).."%"
+	end
+end)
+
+-- Info page
+make("TextLabel", {
+	Parent=infoPage, Size=UDim2.new(1,-20,1,-20), Position=UDim2.new(0,10,0,10),
+	Text="Insdev is a custom Roblox GUI inspired by Fluent UI.\n\nBuilt for developers, admins, and power users.\n\n© YourNameHere",
+	Font=Enum.Font.Gotham, TextSize=16, TextColor3=Color3.new(1,1,1),
+	TextWrapped=true, BackgroundTransparency=1, TextYAlignment=Enum.TextYAlignment.Top
+}, infoPage)
